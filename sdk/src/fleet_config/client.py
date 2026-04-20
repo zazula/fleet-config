@@ -45,7 +45,11 @@ class FleetConfigClient:
         self._raise_for_status(response)
 
     def list_configs(self, namespace: str | None = None) -> list[ConfigKey]:
-        raise ServiceError("list_configs is not supported by the current fleet-config service API")
+        params = {"namespace": namespace} if namespace is not None else None
+        response = self._client.get("/api/v1/configs", params=params)
+        self._raise_for_status(response)
+        payload = response.json()
+        return [self._parse_config(item) for item in payload]
 
     def evaluate_flag(self, flag_key: str, user_id: str) -> bool:
         response = self._client.post(

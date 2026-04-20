@@ -3,11 +3,14 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request, Response, status
 from fastapi.responses import StreamingResponse
+from alembic import command
+from alembic.config import Config
 
-from src.database import check_database_connection
+from src.database import check_database_connection, ensure_schema
 from src.routers.configs import router as configs_router
 from src.routers.flags import router as flags_router
 from src.watchers import WatcherRegistry
@@ -20,8 +23,16 @@ logger = logging.getLogger("fleet-config")
 watcher_registry = WatcherRegistry()
 
 
+def run_startup_migrations() -> None:
+    alembic_ini = Path(__file__).resolve().parent.parent / "alembic.ini"
+    config = Config(str(alembic_ini))
+    command.upgrade(config, "head")
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    run_startup_migrations()
+    ensure_schema()
     logger.info("startup", extra={"event": "startup", "service": "fleet-config"})
     yield
 

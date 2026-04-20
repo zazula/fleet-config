@@ -76,6 +76,16 @@ def read_config(namespace: str, key: str, db: Session = Depends(get_db)) -> Conf
     return ConfigResponse.model_validate(config)
 
 
+@router.get("", response_model=list[ConfigResponse])
+def list_configs(namespace: str | None = None, db: Session = Depends(get_db)) -> list[ConfigResponse]:
+    statement = select(ConfigKey).where(ConfigKey.is_active.is_(True))
+    if namespace is not None:
+        statement = statement.where(ConfigKey.namespace == namespace)
+    statement = statement.order_by(ConfigKey.namespace.asc(), ConfigKey.key.asc())
+    configs = db.scalars(statement).all()
+    return [ConfigResponse.model_validate(config) for config in configs]
+
+
 @router.put("/{namespace}/{key}", response_model=ConfigResponse)
 def update_config(
     namespace: str,
