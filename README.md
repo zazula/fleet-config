@@ -1,5 +1,25 @@
 # fleet-config
 
+## Scaffold status
+
+This repository now includes the E1 project scaffold for a local FastAPI service with SQLite, Alembic migrations, linting, and tests.
+
+## Local development
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+make test
+make lint
+uvicorn src.main:app --host 0.0.0.0 --port 8123
+```
+
+## Implemented endpoints
+
+- `GET /health` → `{"status":"ok"}`
+- `GET /readiness` → `{"status":"ready"}` when the database is reachable, otherwise `503`
+
 **Centralized configuration and feature-flag service for the agent fleet**
 
 [![CI](https://github.com/your-org/fleet-config/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/fleet-config/actions/workflows/ci.yml)

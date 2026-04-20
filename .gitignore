@@ -36,3 +36,15 @@ Thumbs.db
 *.sqlite3
 .env
 fleet_config.egg-info/
+.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+fleet-config.db
+alembic.ini
