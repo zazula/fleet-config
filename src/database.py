@@ -36,3 +36,10 @@ def check_database_connection(db_engine: Engine | None = None) -> bool:
     with active_engine.connect() as connection:
         connection.execute(text("SELECT 1"))
     return True
+
+
+def ensure_schema() -> None:
+    from src.models.config_key import ConfigKey
+    from src.models.feature_flag import FeatureFlag
+
+    Base.metadata.create_all(bind=engine, tables=[ConfigKey.__table__, FeatureFlag.__table__])

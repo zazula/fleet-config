@@ -11,3 +11,7 @@ lint:
 
 test:
 	$(PYTHON) -m pytest tests/ -v
+
+
+test-integration:
+	docker compose up -d && sleep 2 && pytest tests/integration/ -v -m integration && docker compose down
