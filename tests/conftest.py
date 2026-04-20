@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterator
+from datetime import UTC, datetime
 
 import pytest
 from alembic.config import Config
@@ -11,7 +12,7 @@ from alembic import command
 
 os.environ["DATABASE_URL"] = "sqlite:///./test.db"
 
-from src.main import app
+from src.main import app, watcher_registry
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -33,6 +34,8 @@ def client() -> Iterator[TestClient]:
 
 @pytest.fixture(autouse=True)
 def clean_config_keys() -> Iterator[None]:
+    watcher_registry._last_emitted_at = datetime.min.replace(tzinfo=UTC)  # type: ignore[attr-defined]
+    watcher_registry._last_emitted_id = 0  # type: ignore[attr-defined]
     yield
     from src.database import SessionLocal
     from src.models.config_key import ConfigKey
