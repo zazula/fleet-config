@@ -8,6 +8,7 @@ from fastapi import FastAPI, Response, status
 
 from src.database import check_database_connection
 from src.routers.configs import router as configs_router
+from src.routers.flags import router as flags_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,6 +25,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="fleet-config", lifespan=lifespan)
 app.include_router(configs_router)
+app.include_router(flags_router)
 
 
 @app.get("/health")
