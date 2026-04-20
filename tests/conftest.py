@@ -36,9 +36,11 @@ def clean_config_keys() -> Iterator[None]:
     yield
     from src.database import SessionLocal
     from src.models.config_key import ConfigKey
+    from src.models.feature_flag import FeatureFlag
 
     session = SessionLocal()
     try:
+        session.query(FeatureFlag).delete()
         session.query(ConfigKey).delete()
         session.commit()
     finally:
