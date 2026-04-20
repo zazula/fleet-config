@@ -1,4 +1,4 @@
-# ADR 0002: Authentication Model
+# ADR 0002: Auth Model
 
 ## Status
 
@@ -6,24 +6,28 @@ Proposed
 
 ## Context
 
-The architecture and API documentation describe a simple machine-to-machine authentication model centered on scoped credentials presented in the `Authorization` header. The system is intended for service clients, SDKs, and automation rather than end-user login flows. It also requires authorization decisions at the endpoint level, with clear distinctions between authentication failure and insufficient privileges.
+The architecture and API documents describe authenticated access for all configuration and flag operations, with authorization enforced through scopes such as `config:read`, `config:write`, `flags:read`, `flags:write`, and token-management capabilities. The current product goal is to keep authentication simple for service-to-service usage while still supporting least-privilege access and auditability.
 
-The platform needs to create, validate, revoke, and audit these credentials while minimizing operational complexity. Because tokens are bearer credentials, storing them in plaintext would create unnecessary risk if the database were exposed. At the same time, the API already models permissions as scopes such as read and write capabilities across configuration, flags, and keys.
+A naive API key model is easy to ship, but plain key storage creates unnecessary risk if the database is exposed, and coarse authorization limits future operability as more endpoints and automation workflows are added. The API already assumes Bearer-style authorization headers and audit attribution tied to an authenticated subject.
 
 ## Decision
 
-Use bearer tokens as the authentication mechanism, store only hashed representations of those tokens at rest, and authorize requests using scope-based access control.
+Adopt bearer tokens as the authentication mechanism, store only hashed token material at rest, and authorize requests through explicit scopes.
 
-Issued tokens will be presented by clients in the `Authorization: Bearer <token>` header. The server will hash incoming tokens and compare the hash to stored records rather than persisting raw token secrets. Each token record will carry one or more scopes, and endpoint access will be enforced by checking for the required scope before executing the requested operation.
+Specifically:
 
-This preserves the simple API-key-like operational model described by the architecture while improving storage safety and making authorization rules explicit and composable.
+- Issue opaque bearer tokens for clients to present in the `Authorization: Bearer ...` header.
+- Persist only a one-way hash of the token secret, never the full recoverable token value.
+- Associate each token with a subject identifier and a bounded set of scopes.
+- Enforce scope checks in auth middleware and/or service boundaries before executing protected operations.
+- Use the authenticated subject and granted scopes to support audit-log attribution and revocation workflows.
 
 ## Consequences
 
-- Clients get a simple, familiar machine-to-machine authentication flow with no session management or interactive login requirements.
-- Storing only token hashes reduces the blast radius of a database leak because raw bearer secrets are not recoverable from normal application storage.
-- Scope-based authorization maps cleanly to the documented endpoint permissions and supports least-privilege token issuance.
-- Revocation, auditing, and key management remain straightforward because tokens are first-class managed resources.
-- Operators must handle token issuance carefully because the raw token value is only available at creation time.
-- Hashed storage adds a small amount of implementation complexity around secure generation, hashing, comparison, and rotation behavior.
-- Bearer tokens remain high-value secrets in transit and at the client, so transport security and client-side secret handling remain critical.
+- The system remains simple for machine clients because it uses a familiar bearer-token flow rather than a more complex delegated auth system.
+- Storing hashed tokens reduces blast radius if the token table is leaked, because tokens cannot be read back directly from persistence.
+- Scope-based authorization supports least privilege and maps cleanly to the API surface already defined in the docs.
+- Audit entries can identify which subject performed a write or revocation action.
+- Token issuance must surface the plaintext token exactly once, which requires careful operational handling by clients.
+- Revocation and lookup flows must be built around hash-based matching and metadata, not plaintext token recovery.
+- Opaque bearer tokens still require strong transport security and secure client-side storage because possession remains sufficient for access.

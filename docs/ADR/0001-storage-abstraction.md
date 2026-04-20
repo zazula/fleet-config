@@ -6,23 +6,27 @@ Proposed
 
 ## Context
 
-The current architecture targets operational simplicity by shipping as a single container backed by SQLite, while explicitly keeping the door open to migrate to PostgreSQL later as scale and operational needs grow. The architecture also separates the FastAPI router layer from the service layer and repository layer, which suggests a need for a persistence approach that does not leak database-specific behavior into request handling or business logic.
+The current architecture targets a single-container deployment backed by SQLite to keep initial operations simple. The architecture document also calls out the need to remain swappable to Postgres as the system outgrows a single-node SQLite setup. The service includes multiple persistence-backed concerns—configuration storage, feature flags, API tokens, and audit records—which should not force application-layer rewrites when the database backend changes.
 
-The API surface includes audited write operations, cursor-paginated list endpoints, versioned configuration records, scoped authentication, and real-time watch behavior. Those features require clear transactional boundaries and durable data access patterns that can work against SQLite now and PostgreSQL later without forcing a major rewrite.
+At the API layer, the service exposes versioned config CRUD, feature-flag evaluation and management, token administration, and audit-oriented write behavior. Those behaviors require transactional updates, predictable async I/O under FastAPI, and a clean separation between HTTP concerns, business rules, and persistence details.
 
 ## Decision
 
-Use SQLAlchemy's async ORM and Core capabilities as the database access foundation, and organize persistence behind a repository pattern.
+Use SQLAlchemy's async support as the primary database abstraction and implement data access through a repository pattern.
 
-Repositories will define the application-facing interface for loading and mutating configuration entries, feature flags, API tokens, audit records, and supporting watch-related persistence concerns. The service layer will depend on repository interfaces rather than raw SQL or framework-bound session handling. SQLAlchemy async sessions will provide transaction management and database connectivity for both SQLite in the initial deployment model and PostgreSQL in a future deployment.
+Specifically:
 
-This decision keeps the storage model relational, preserves portability across supported SQL backends, and aligns with the existing layered architecture described in the design documents.
+- Use SQLAlchemy async engines and sessions for both SQLite today and Postgres later.
+- Keep ORM models and migrations aligned with a relational schema that works across both backends.
+- Introduce repository interfaces for the main aggregate areas such as config entries, feature flags, API tokens, and audit events.
+- Keep service-layer code dependent on repository contracts rather than database-specific queries.
+- Centralize transaction boundaries in the service layer so multi-step writes remain explicit and portable across backends.
 
 ## Consequences
 
-- The application gains a clean boundary between business logic and persistence, making a later move from SQLite to PostgreSQL substantially easier.
-- Async database access fits the FastAPI-based async request model and avoids introducing a mismatched synchronous persistence layer.
-- Repository interfaces improve testability by allowing service-layer tests to use fakes or stubs without requiring a real database for every case.
-- SQLAlchemy provides migrations, dialect handling, and query composition capabilities that reduce the amount of handwritten database glue code.
-- The codebase takes on additional abstraction and setup cost compared with direct SQL or a lighter-weight SQLite-only approach.
-- Some queries may need deliberate tuning to behave consistently across SQLite and PostgreSQL, especially around JSON handling, concurrency characteristics, and SQL dialect differences.
+- The application gains a clear migration path from SQLite to Postgres without rewriting routers or core business logic.
+- Async database access aligns with the FastAPI execution model and avoids introducing separate sync persistence pathways.
+- Repository boundaries improve testability by allowing service logic to be exercised with fakes or targeted integration fixtures.
+- Query behavior becomes more deliberate, which is helpful for config versioning, audit logging, and token lifecycle operations.
+- The design adds some upfront abstraction and boilerplate compared with directly querying through ORM sessions in route handlers.
+- Some SQLAlchemy and backend differences still need active management, especially around SQLite/Postgres type behavior, concurrency semantics, and SQL feature parity.
