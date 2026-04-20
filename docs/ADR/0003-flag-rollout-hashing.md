@@ -6,23 +6,27 @@ Proposed
 
 ## Context
 
-The feature-flag engine supports percentage rollouts and must evaluate flags deterministically so that a given actor receives a stable result across repeated requests. The architecture emphasizes predictable evaluation behavior for small-to-medium deployments, and the API design implies that clients depend on consistent outcomes for controlled rollouts.
+The feature-flag engine needs deterministic percentage rollouts so a given subject receives a stable flag decision across repeated evaluations. The architecture calls out percentage rollouts alongside attribute rules and allowlists, which means the rollout mechanism must be predictable, easy to implement in the service, and portable across environments and SDKs.
 
-To support percentage-based rollout, the system needs a repeatable way to map an evaluation key, actor identifier, or similar subject value into a bucket space. That mapping should be implementation-independent, stable across processes, and easy to reproduce in documentation and SDKs.
+Simple random sampling at request time would produce inconsistent experiences, while rollout logic tied too closely to a specific database or runtime would make cross-language evaluation harder. The system needs a bucket assignment approach based on stable inputs such as flag key and subject key.
 
 ## Decision
 
-Use a SHA-256 based hash to derive deterministic rollout buckets for percentage flag evaluation.
+Use a SHA-256-based bucket hash to drive deterministic rollout assignment.
 
-The rollout algorithm will hash a stable input composed of the flag identity and subject identity, then map the resulting digest into the bucket range used for percentage comparisons. This ensures that the same subject is assigned consistently for the same flag, independent of runtime instance or process state.
+Specifically:
 
-SHA-256 is chosen because it is widely available, deterministic, and easy to implement consistently across languages without introducing custom hashing logic.
+- Build a stable input string from the rollout context, including at minimum the flag identifier and subject identifier.
+- Compute a SHA-256 digest over that input.
+- Convert a defined portion of the digest into a numeric bucket.
+- Map that bucket into the rollout range used by percentage-based rules.
+- Standardize the input format and bucket calculation so server and SDK implementations remain consistent.
 
 ## Consequences
 
-- Rollout decisions remain stable for a given subject and flag, which avoids user flapping and preserves confidence in staged delivery.
-- The algorithm is straightforward to reproduce across backend services and SDKs, improving interoperability.
-- The hashing approach does not require shared mutable state, which fits the stateless application design.
-- Changing the rollout input shape or hashing algorithm in the future would redistribute bucket assignments for some or all subjects.
-- Consistency is prioritized over bucket preservation across algorithm changes; any future change must be treated as a deliberate migration event.
-- SHA-256 is computationally heavier than simpler non-cryptographic hashes, but the cost is acceptable for the expected request profile and the benefit of standardization.
+- Rollout decisions are deterministic for the same inputs, which gives users a consistent experience across evaluations.
+- SHA-256 is widely available and portable, making equivalent implementations practical across languages and runtimes.
+- The approach avoids dependence on database-specific sampling or runtime-local randomness.
+- Changing the hash input format, the selected digest segment, or the bucketing algorithm will redistribute assignments for some or all subjects.
+- This creates a trade-off: consistency is preserved while the algorithm remains fixed, but future algorithm changes can trigger redistribution during migrations.
+- The implementation must document normalization rules carefully to avoid accidental divergence between server-side and SDK-side evaluation.
