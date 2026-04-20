@@ -6,6 +6,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from src.database import get_database_url
+from src.models import ConfigKey
 
 config = context.config
 config.set_main_option("sqlalchemy.url", get_database_url())
@@ -13,7 +14,7 @@ config.set_main_option("sqlalchemy.url", get_database_url())
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-target_metadata = None
+target_metadata = ConfigKey.metadata
 
 
 def run_migrations_offline() -> None:

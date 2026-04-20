@@ -16,6 +16,8 @@ from src.main import app
 
 @pytest.fixture(scope="session", autouse=True)
 def migrated_database() -> Iterator[None]:
+    if os.path.exists("test.db"):
+        os.remove("test.db")
     config = Config("alembic.ini")
     command.upgrade(config, "head")
     yield
@@ -27,3 +29,17 @@ def migrated_database() -> Iterator[None]:
 def client() -> Iterator[TestClient]:
     with TestClient(app) as test_client:
         yield test_client
+
+
+@pytest.fixture(autouse=True)
+def clean_config_keys() -> Iterator[None]:
+    yield
+    from src.database import SessionLocal
+    from src.models.config_key import ConfigKey
+
+    session = SessionLocal()
+    try:
+        session.query(ConfigKey).delete()
+        session.commit()
+    finally:
+        session.close()

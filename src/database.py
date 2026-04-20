@@ -4,9 +4,13 @@ import os
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 DEFAULT_DATABASE_URL = "sqlite:///./fleet-config.db"
+
+
+class Base(DeclarativeBase):
+    pass
 
 
 def get_database_url() -> str:
@@ -21,6 +25,10 @@ def create_db_engine(database_url: str | None = None) -> Engine:
 
 engine = create_db_engine()
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+
+
+def get_session() -> sessionmaker:
+    return SessionLocal
 
 
 def check_database_connection(db_engine: Engine | None = None) -> bool:
